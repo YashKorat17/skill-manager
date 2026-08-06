@@ -1,6 +1,6 @@
 {
-  "name": "skill-finder",
-  "version": "1.0.0",
+  "name": "@yashkorat17/skill-finder",
+  "version": "1.2.0",
   "description": "Find every Claude Code / Agent SDK skill installed on your machine and list them in one place.",
   "type": "module",
   "bin": {
@@ -21,7 +21,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test test/scan.test.js",
+    "test": "node --test test/scan.test.js test/update.test.js",
     "start": "node bin/cli.js"
   },
   "keywords": [
@@ -39,6 +39,6 @@
   "author": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/USER/skill-finder.git"
+    "url": "https://github.com/YashKorat17/skill-manager.git"
   }
 }

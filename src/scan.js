@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { parseFrontmatter } from './frontmatter.js';
+import { weighSkill } from './tokens.js';
 
 const SKILL_FILE = 'SKILL.md';
 const IGNORED_DIRS = new Set([
@@ -185,10 +186,12 @@ async function readSkill(file, root, { includeBody, manifests }) {
   const dir = path.dirname(file);
   const name = String(data.name ?? path.basename(dir));
   const source = await describeSource(file, root, manifests);
+  const bundle = await inspectDir(dir);
+  const description = normalizeText(data.description ?? firstParagraph(body));
 
   const skill = {
     name,
-    description: normalizeText(data.description ?? firstParagraph(body)),
+    description,
     source: source.kind,
     plugin: source.plugin,
     scope: root.kind ?? 'custom',
@@ -201,8 +204,10 @@ async function readSkill(file, root, { includeBody, manifests }) {
     version: data.version ?? null,
     license: data.license ?? null,
     metadata: data,
-    resources: await listResources(dir),
+    resources: bundle.entries,
+    tokens: weighSkill({ name, description, body, resourceBytes: bundle.bytes }),
     size: stat?.size ?? null,
+    bundleSize: (stat?.size ?? 0) + bundle.bytes,
     modified: stat ? stat.mtime.toISOString() : null
   };
 
@@ -271,15 +276,59 @@ function isVersionLike(segment) {
   return /^v?\d+(\.\d+)*$/.test(segment) || /^[0-9a-f]{7,}$/i.test(segment);
 }
 
-async function listResources(dir) {
+/** Sibling files of a SKILL.md, plus their total size on disk. */
+async function inspectDir(dir) {
+  let entries;
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    return entries
-      .filter((entry) => entry.name.toLowerCase() !== SKILL_FILE.toLowerCase())
-      .map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
-      .sort();
+    entries = await fs.readdir(dir, { withFileTypes: true });
   } catch {
-    return [];
+    return { entries: [], bytes: 0 };
+  }
+
+  const names = [];
+  let bytes = 0;
+
+  for (const entry of entries) {
+    if (entry.name.toLowerCase() === SKILL_FILE.toLowerCase()) continue;
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      names.push(`${entry.name}/`);
+      bytes += await directorySize(full);
+      continue;
+    }
+
+    names.push(entry.name);
+    bytes += await fileSize(full);
+  }
+
+  return { entries: names.sort(), bytes };
+}
+
+async function directorySize(dir, depth = 0) {
+  if (depth > 4) return 0;
+
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+
+  let bytes = 0;
+  for (const entry of entries) {
+    if (IGNORED_DIRS.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    bytes += entry.isDirectory() ? await directorySize(full, depth + 1) : await fileSize(full);
+  }
+  return bytes;
+}
+
+async function fileSize(file) {
+  try {
+    return (await fs.stat(file)).size;
+  } catch {
+    return 0;
   }
 }
 
