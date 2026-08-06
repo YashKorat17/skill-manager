@@ -1,6 +1,6 @@
 {
   "name": "@yashkorat17/skill-finder",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Find every Claude Code / Agent SDK skill installed on your machine and list them in one place.",
   "type": "module",
   "bin": {
