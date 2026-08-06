@@ -1,0 +1,44 @@
+{
+  "name": "skill-finder",
+  "version": "1.0.0",
+  "description": "Find every Claude Code / Agent SDK skill installed on your machine and list them in one place.",
+  "type": "module",
+  "bin": {
+    "skill-finder": "bin/cli.js",
+    "skillfinder": "bin/cli.js"
+  },
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/scan.test.js",
+    "start": "node bin/cli.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "skills",
+    "skill",
+    "agent",
+    "anthropic",
+    "cli",
+    "mcp",
+    "plugins"
+  ],
+  "license": "MIT",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/USER/skill-finder.git"
+  }
+}
