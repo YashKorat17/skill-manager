@@ -1,6 +1,6 @@
 {
   "name": "@yashkorat17/skill-manager",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Find every Claude Code / Agent SDK skill installed on your machine, weigh their token cost, install, update and delete them.",
   "type": "module",
   "bin": {
