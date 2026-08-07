@@ -39,6 +39,9 @@ Options
       --duplicates    keep copies of the same plugin skill found twice
       --body          include SKILL.md body in --json / --show output
       --suggest       recommend marketplace plugins matching this project
+      --report        save a progress report (skill counts + token weight)
+      --graph         open graphify-out/graph.html in the browser, if it exists
+      --tidy-ide      add files.exclude entries to .vscode/settings.json
       --no-color      disable ANSI colors
       --no-ui         never open the interactive menu
   -v, --version       print version
@@ -83,6 +86,9 @@ async function main() {
   if (options.version) return print(readVersion());
   if (options.command === 'update') return update(options);
   if (options.suggest) return suggest(options);
+  if (options.report) return report(options);
+  if (options.graph) return graph(options);
+  if (options.tidyIde) return tidyIdeCommand(options);
 
   // Bare `skill-manager` in a terminal opens the menu; anything else - a query,
   // a flag, a pipe - keeps the plain printing behaviour scripts rely on.
@@ -310,6 +316,33 @@ async function suggest(options) {
   print(style.dim(`install with: claude plugin install <name>@<marketplace>`));
 }
 
+async function report() {
+  const { buildReport, saveReport } = await import('../src/report.js');
+  const { skills, roots } = await findSkills();
+  const text = buildReport({ skills, roots });
+  const file = saveReport(process.cwd(), text);
+  print(`Report saved: ${file}`);
+}
+
+async function graph() {
+  const { findProjectGraph, openInBrowser } = await import('../src/graph.js');
+  const file = findProjectGraph(process.cwd());
+  if (!file) {
+    print('No graphify-out/graph.html found. Generate one first with the graphify skill (/graphify).');
+    process.exitCode = 1;
+    return;
+  }
+  openInBrowser(file);
+  print(`Opened ${file}`);
+}
+
+async function tidyIdeCommand() {
+  const { tidyIde } = await import('../src/ide.js');
+  const { file, added } = tidyIde(process.cwd());
+  print(`Updated ${file}`);
+  print(added.length ? `Added: ${added.join(', ')}` : 'Nothing to add - already tidy.');
+}
+
 function pickSkill(skills, needle) {
   const query = String(needle).toLowerCase();
   return (
@@ -376,6 +409,9 @@ function parseArgs(argv) {
     body: false,
     duplicates: false,
     suggest: false,
+    report: false,
+    graph: false,
+    tidyIde: false,
     help: false,
     version: false,
     show: null,
@@ -431,6 +467,15 @@ function parseArgs(argv) {
         break;
       case '--suggest':
         options.suggest = true;
+        break;
+      case '--report':
+        options.report = true;
+        break;
+      case '--graph':
+        options.graph = true;
+        break;
+      case '--tidy-ide':
+        options.tidyIde = true;
         break;
       case '--no-color':
         options.color = false;

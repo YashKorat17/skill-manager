@@ -7,6 +7,9 @@ import { checkUpdates, updateAll } from './update.js';
 import { createStyler, formatDetail } from './format.js';
 import { formatTokens } from './tokens.js';
 import { suggestSkills } from './suggest.js';
+import { buildReport, saveReport } from './report.js';
+import { findProjectGraph, openInBrowser } from './graph.js';
+import { tidyIde } from './ide.js';
 
 const ESC = String.fromCharCode(27);
 const CLEAR = `${ESC}[2J${ESC}[H`;
@@ -77,6 +80,9 @@ async function home(state) {
         { key: 'suggest', label: 'Suggest for this project', hint: 'matched to package.json + config files' },
         { key: 'marketplaces', label: 'Marketplaces', hint: 'add or refresh sources' },
         { key: 'update', label: 'Update everything', hint: 'package, marketplaces, plugins' },
+        { key: 'report', label: 'Save progress report', hint: 'skill counts + token weight to file' },
+        { key: 'graph', label: 'Open project graph', hint: 'opens graphify-out/graph.html in browser' },
+        { key: 'tidy', label: 'Hide clutter in VS Code', hint: 'adds files.exclude for node_modules etc' },
         { key: 'quit', label: 'Quit' }
       ]
     });
@@ -89,6 +95,9 @@ async function home(state) {
     if (choice === 'suggest') await suggestScreen(state);
     if (choice === 'marketplaces') await marketplaceScreen(state);
     if (choice === 'update') await updateScreen(state);
+    if (choice === 'report') await reportScreen(state);
+    if (choice === 'graph') await graphScreen(state);
+    if (choice === 'tidy') await tidyScreen(state);
   }
 }
 
@@ -276,8 +285,7 @@ async function installScreen(state) {
     ]);
   }
 
-  draw(state, { title: 'Install skills', body: s.dim('loading catalog...') });
-  let catalog = await listAvailablePlugins();
+  let catalog = await withSpinner(state, 'Install skills', 'loading catalog...', listAvailablePlugins());
 
   if (!catalog.length) {
     return message(state, 'Install skills', [
@@ -363,8 +371,12 @@ async function suggestScreen(state) {
     return message(state, 'Suggest for this project', ['The claude CLI was not found on PATH.']);
   }
 
-  draw(state, { title: 'Suggest for this project', body: s.dim('scanning project and catalog...') });
-  const { categories, suggestions } = await suggestSkills();
+  const { categories, suggestions } = await withSpinner(
+    state,
+    'Suggest for this project',
+    'scanning project and catalog...',
+    suggestSkills()
+  );
 
   if (!suggestions.length) {
     return message(state, 'Suggest for this project', [
@@ -527,6 +539,48 @@ async function updateScreen(state) {
   await reloadSkills(state);
 }
 
+async function reportScreen(state) {
+  const s = state.style;
+  const report = buildReport({ skills: state.skills, roots: state.roots });
+  const file = saveReport(process.cwd(), report);
+
+  await message(state, 'Progress report saved', [
+    file,
+    '',
+    s.dim(`${state.skills.length} skills, history kept under .skill-manager/reports`)
+  ]);
+}
+
+async function graphScreen(state) {
+  const s = state.style;
+  const file = findProjectGraph(process.cwd());
+
+  if (!file) {
+    return message(state, 'Project graph', [
+      'No graphify-out/graph.html found in this directory.',
+      '',
+      'Generate one first with the graphify skill:',
+      s.dim('  /graphify')
+    ]);
+  }
+
+  openInBrowser(file);
+  await message(state, 'Project graph', [`Opened ${file} in your browser.`]);
+}
+
+async function tidyScreen(state) {
+  const s = state.style;
+  const { file, added } = tidyIde(process.cwd());
+
+  await message(state, 'VS Code clutter hidden', [
+    file,
+    '',
+    added.length
+      ? `Added: ${added.join(', ')}`
+      : s.dim('Nothing to add - these excludes were already there.')
+  ]);
+}
+
 function statusMark(state, status) {
   const s = state.style;
   if (status === 'updated') return s.green('+');
@@ -595,6 +649,25 @@ async function menu(state, { title, subtitle, items }) {
 async function message(state, title, lines) {
   draw(state, { title, body: lines.join('\n'), footer: 'any key to go back' });
   await readKey();
+}
+
+const SPINNER_FRAMES = ['|', '/', '-', '\\'];
+
+/** Animates a spinner next to `label` while `promise` is pending, then resolves it. */
+async function withSpinner(state, title, label, promise) {
+  let frame = 0;
+  const tick = () => {
+    draw(state, { title, body: `${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${label}` });
+    frame += 1;
+  };
+
+  tick();
+  const timer = setInterval(tick, 120);
+  try {
+    return await promise;
+  } finally {
+    clearInterval(timer);
+  }
 }
 
 /** Runs a long task, streaming its output onto the screen. */
