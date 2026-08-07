@@ -14,15 +14,15 @@ import {
   formatWeight
 } from '../src/format.js';
 
-const HELP = `skill-finder - find every Claude skill installed on this machine,
+const HELP = `skill-manager - find every Claude skill installed on this machine,
 see what it costs in tokens, install more, update them and delete the rest.
 
 Usage
-  skill-finder                     interactive menu (in a terminal)
-  skill-finder [query] [options]   print a table instead
-  skill-finder rm <name> [options] delete a skill
-  skill-finder update [options]    update package, marketplaces and plugins
-  skill-finder ui                  force the interactive menu
+  skill-manager                     interactive menu (in a terminal)
+  skill-manager [query] [options]   print a table instead
+  skill-manager rm <name> [options] delete a skill
+  skill-manager update [options]    update package, marketplaces and plugins
+  skill-manager ui                  force the interactive menu
 
 Options
   -j, --json          print machine-readable JSON
@@ -60,18 +60,18 @@ Token weight
   skill triggers. Counts are estimates (~4 characters per token).
 
 Examples
-  skill-finder                      interactive menu
-  skill-finder --no-ui              list every skill with its token weight
-  skill-finder --sort tokens --top 10   the 10 heaviest skills
-  skill-finder --source user        only your own skills
-  skill-finder --show graphify      full detail for one skill
-  skill-finder rm old-skill --dry-run
-  skill-finder update --check
-  skill-finder --json > skills.json
+  skill-manager                      interactive menu
+  skill-manager --no-ui              list every skill with its token weight
+  skill-manager --sort tokens --top 10   the 10 heaviest skills
+  skill-manager --source user        only your own skills
+  skill-manager --show graphify      full detail for one skill
+  skill-manager rm old-skill --dry-run
+  skill-manager update --check
+  skill-manager --json > skills.json
 `;
 
 main().catch((error) => {
-  process.stderr.write(`skill-finder: ${error.message}\n`);
+  process.stderr.write(`skill-manager: ${error.message}\n`);
   process.exit(1);
 });
 
@@ -82,7 +82,7 @@ async function main() {
   if (options.version) return print(readVersion());
   if (options.command === 'update') return update(options);
 
-  // Bare `skill-finder` in a terminal opens the menu; anything else - a query,
+  // Bare `skill-manager` in a terminal opens the menu; anything else - a query,
   // a flag, a pipe - keeps the plain printing behaviour scripts rely on.
   if (options.command === 'ui' || (options.command === 'list' && isBareInteractive(options))) {
     const { startUI } = await import('../src/ui.js');
@@ -292,7 +292,7 @@ function pickSkill(skills, needle) {
 }
 
 function notFound(needle) {
-  process.stderr.write(`skill-finder: no skill matching "${needle}"\n`);
+  process.stderr.write(`skill-manager: no skill matching "${needle}"\n`);
   process.exit(1);
 }
 

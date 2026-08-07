@@ -1,11 +1,11 @@
 {
-  "name": "@yashkorat17/skill-finder",
+  "name": "@yashkorat17/skill-manager",
   "version": "1.4.0",
-  "description": "Find every Claude Code / Agent SDK skill installed on your machine and list them in one place.",
+  "description": "Find every Claude Code / Agent SDK skill installed on your machine, weigh their token cost, install, update and delete them.",
   "type": "module",
   "bin": {
-    "skill-finder": "bin/cli.js",
-    "skillfinder": "bin/cli.js"
+    "skill-manager": "bin/cli.js",
+    "skillmanager": "bin/cli.js"
   },
   "main": "src/index.js",
   "exports": {

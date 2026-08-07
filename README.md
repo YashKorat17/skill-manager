@@ -1,17 +1,17 @@
-# @yashkorat17/skill-finder
+# @yashkorat17/skill-manager
 
 Find every Claude skill installed on your machine, see what each one costs you in
 tokens, and delete the ones you do not want.
 
 Skills end up scattered across several directories — your personal `~/.claude/skills`,
 each installed plugin, marketplace checkouts, per-project `.claude/skills`, and the
-bundles the Claude desktop app unpacks. `skill-finder` walks all of them, reads each
+bundles the Claude desktop app unpacks. `skill-manager` walks all of them, reads each
 `SKILL.md`, and prints a single table.
 
 No dependencies. No install required.
 
 ```bash
-npx @yashkorat17/skill-finder
+npx @yashkorat17/skill-manager
 ```
 
 ```
@@ -40,7 +40,7 @@ So the useful question is not "which skill is biggest" but "which skill is bigge
 in every single session":
 
 ```bash
-npx @yashkorat17/skill-finder --sort tokens --top 10
+npx @yashkorat17/skill-manager --sort tokens --top 10
 ```
 
 Counts are estimates from a ~4-characters-per-token heuristic — no tokenizer is
@@ -52,7 +52,7 @@ magnitude, not a bill.
 Run it with no arguments in a terminal and you get a menu instead of a table:
 
 ```
- skill-finder
+ skill-manager
 --------------------------------------------------------------------------------
 
 114 skills  plugin 89  user 14  app 11
@@ -81,7 +81,7 @@ up/down move   enter select   esc/q quit
 
 The menu only opens when stdin and stdout are both a TTY and no other flag was
 given, so pipes and scripts keep the plain output. Force either mode with
-`skill-finder ui` or `skill-finder --no-ui`.
+`skill-manager ui` or `skill-manager --no-ui`.
 
 Installing and updating plugins is delegated to the `claude` CLI — it owns the
 marketplace config and plugin cache. Without it on your PATH, those two screens
@@ -90,14 +90,14 @@ explain what is missing and everything else still works.
 ## Updating
 
 ```bash
-skill-finder update            # package + marketplaces + plugins
-skill-finder update --check    # report what is outdated, change nothing
-skill-finder update --self     # only this npm package
-skill-finder update --plugins  # only marketplaces and plugins
+skill-manager update            # package + marketplaces + plugins
+skill-manager update --check    # report what is outdated, change nothing
+skill-manager update --self     # only this npm package
+skill-manager update --plugins  # only marketplaces and plugins
 ```
 
 ```
-+ @yashkorat17/skill-finder v1.2.0 -> v1.3.0
++ @yashkorat17/skill-manager v1.2.0 -> v1.3.0
 + marketplaces all sources refreshed
 = caveman@caveman v0.4.1
 + claude-mem@thedotmack updated
@@ -110,26 +110,26 @@ Restart Claude Code afterwards — plugin updates only take effect in a new sess
 ## Usage
 
 ```bash
-npx @yashkorat17/skill-finder                    # interactive menu
-npx @yashkorat17/skill-finder --no-ui            # every skill found
-npx @yashkorat17/skill-finder pdf                # only skills matching "pdf"
-npx @yashkorat17/skill-finder --sort tokens      # heaviest always-loaded first
-npx @yashkorat17/skill-finder --source user      # only your own skills
-npx @yashkorat17/skill-finder --show graphify    # full detail for one skill
-npx @yashkorat17/skill-finder rm old-skill       # delete a skill (asks first)
-npx @yashkorat17/skill-finder --json             # machine-readable output
+npx @yashkorat17/skill-manager                    # interactive menu
+npx @yashkorat17/skill-manager --no-ui            # every skill found
+npx @yashkorat17/skill-manager pdf                # only skills matching "pdf"
+npx @yashkorat17/skill-manager --sort tokens      # heaviest always-loaded first
+npx @yashkorat17/skill-manager --source user      # only your own skills
+npx @yashkorat17/skill-manager --show graphify    # full detail for one skill
+npx @yashkorat17/skill-manager rm old-skill       # delete a skill (asks first)
+npx @yashkorat17/skill-manager --json             # machine-readable output
 ```
 
 Install it permanently if you use it often:
 
 ```bash
-npm install -g @yashkorat17/skill-finder
+npm install -g @yashkorat17/skill-manager
 ```
 
 ## Deleting skills
 
 ```bash
-skill-finder rm <name>
+skill-manager rm <name>
 ```
 
 The name is matched the same way as the search query, so a prefix is enough. Before
@@ -137,7 +137,7 @@ anything is removed you get the skill's path, how many tokens it frees, and a wa
 if it is managed by something that will put it back.
 
 ```
-$ skill-finder rm old-helper
+$ skill-manager rm old-helper
 old-helper  user
 /home/you/.claude/skills/old-helper
 frees 61 tokens from every session, 1.2k on demand
@@ -155,7 +155,7 @@ Safety rules:
 
 Deleting a `plugin` or `app` skill works, but it will return the next time that
 plugin or the desktop app updates — uninstall the plugin instead for a permanent
-removal. `skill-finder` says so before it deletes.
+removal. `skill-manager` says so before it deletes.
 
 ## Options
 
@@ -219,7 +219,7 @@ rather than aborting the scan.
 ## Programmatic use
 
 ```js
-import { findSkills, filterSkills, removeSkill } from '@yashkorat17/skill-finder';
+import { findSkills, filterSkills, removeSkill } from '@yashkorat17/skill-manager';
 
 const { skills, roots, errors } = await findSkills();
 

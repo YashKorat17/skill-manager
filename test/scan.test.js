@@ -17,7 +17,7 @@ async function exists(target) {
 }
 
 async function fixture() {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skill-finder-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skill-manager-'));
 
   await write(
     path.join(root, 'skills', 'pdf', 'SKILL.md'),

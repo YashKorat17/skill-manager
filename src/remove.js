@@ -12,7 +12,7 @@ import path from 'node:path';
  *    an accidental removal is recoverable without reinstalling anything.
  */
 export function backupRoot() {
-  return path.join(os.tmpdir(), 'skill-finder-backups');
+  return path.join(os.tmpdir(), 'skill-manager-backups');
 }
 
 /**

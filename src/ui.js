@@ -67,7 +67,7 @@ async function reloadSkills(state) {
 async function home(state) {
   for (;;) {
     const choice = await menu(state, {
-      title: 'skill-finder',
+      title: 'skill-manager',
       subtitle: homeSummary(state),
       items: [
         { key: 'all skills', label: 'Browse all skills', hint: 'search, inspect, delete' },
