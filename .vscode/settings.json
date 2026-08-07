@@ -1,0 +1,11 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/graphify-out/.graphify_*": true,
+    "**/.skill-manager": true,
+    "**/coverage": true,
+    "**/dist": true,
+    "**/.DS_Store": true
+  }
+}

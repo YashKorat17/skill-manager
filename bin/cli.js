@@ -41,6 +41,7 @@ Options
       --suggest       recommend marketplace plugins matching this project
       --report        save a progress report (skill counts + token weight)
       --graph         open graphify-out/graph.html in the browser, if it exists
+      --build-graph   build a code-only graph (installs graphifyy if needed)
       --tidy-ide      add files.exclude entries to .vscode/settings.json
       --no-color      disable ANSI colors
       --no-ui         never open the interactive menu
@@ -88,6 +89,7 @@ async function main() {
   if (options.suggest) return suggest(options);
   if (options.report) return report(options);
   if (options.graph) return graph(options);
+  if (options.buildGraph) return buildGraph(options);
   if (options.tidyIde) return tidyIdeCommand(options);
 
   // Bare `skill-manager` in a terminal opens the menu; anything else - a query,
@@ -343,6 +345,29 @@ async function tidyIdeCommand() {
   print(added.length ? `Added: ${added.join(', ')}` : 'Nothing to add - already tidy.');
 }
 
+async function buildGraph() {
+  const { buildCodeGraph } = await import('../src/graphify.js');
+  print('Building code graph (installs graphifyy if needed)...');
+
+  let summary;
+  try {
+    summary = await buildCodeGraph(process.cwd(), { onData: (chunk) => process.stderr.write(chunk) });
+  } catch (error) {
+    print(`skill-manager: ${error.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (summary.error) {
+    print(`skill-manager: ${summary.error}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  print(`${summary.nodes} nodes, ${summary.edges} edges, ${summary.communities} communities`);
+  print(summary.htmlExists ? 'graphify-out/graph.html written' : 'graph.json written, HTML export failed');
+}
+
 function pickSkill(skills, needle) {
   const query = String(needle).toLowerCase();
   return (
@@ -411,6 +436,7 @@ function parseArgs(argv) {
     suggest: false,
     report: false,
     graph: false,
+    buildGraph: false,
     tidyIde: false,
     help: false,
     version: false,
@@ -473,6 +499,9 @@ function parseArgs(argv) {
         break;
       case '--graph':
         options.graph = true;
+        break;
+      case '--build-graph':
+        options.buildGraph = true;
         break;
       case '--tidy-ide':
         options.tidyIde = true;

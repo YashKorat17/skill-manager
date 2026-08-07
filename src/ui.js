@@ -10,6 +10,7 @@ import { suggestSkills } from './suggest.js';
 import { buildReport, saveReport } from './report.js';
 import { findProjectGraph, openInBrowser } from './graph.js';
 import { tidyIde } from './ide.js';
+import { buildCodeGraph } from './graphify.js';
 
 const ESC = String.fromCharCode(27);
 const CLEAR = `${ESC}[2J${ESC}[H`;
@@ -49,6 +50,7 @@ export async function startUI(context = {}) {
   };
   process.on('exit', restore);
 
+  await playIntro(state);
   await reloadSkills(state);
 
   try {
@@ -57,6 +59,23 @@ export async function startUI(context = {}) {
     restore();
     out.write('\n');
   }
+}
+
+/** Quick wordmark reveal on startup - a few hundred ms, never blocks past that. */
+async function playIntro(state) {
+  const s = state.style;
+  const word = 'skill-manager';
+  const out = process.stdout;
+
+  for (let i = 1; i <= word.length; i += 1) {
+    out.write(`${CLEAR}\n  ${s.cyan(s.bold(word.slice(0, i)))}${s.dim(word.slice(i))}\n`);
+    await sleep(22);
+  }
+  await sleep(120);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function reloadSkills(state) {
@@ -553,19 +572,48 @@ async function reportScreen(state) {
 
 async function graphScreen(state) {
   const s = state.style;
-  const file = findProjectGraph(process.cwd());
+  const existing = findProjectGraph(process.cwd());
 
-  if (!file) {
-    return message(state, 'Project graph', [
-      'No graphify-out/graph.html found in this directory.',
-      '',
-      'Generate one first with the graphify skill:',
-      s.dim('  /graphify')
-    ]);
+  if (existing) {
+    openInBrowser(existing);
+    return message(state, 'Project graph', [`Opened ${existing} in your browser.`]);
   }
 
-  openInBrowser(file);
-  await message(state, 'Project graph', [`Opened ${file} in your browser.`]);
+  const choice = await menu(state, {
+    title: 'Project graph',
+    subtitle: 'No graphify-out/graph.html found yet.',
+    items: [
+      {
+        key: 'build',
+        label: 'Build a code graph now',
+        hint: 'AST-only, no LLM needed - skips docs/papers/images'
+      },
+      { key: 'back', label: 'Back' }
+    ]
+  });
+
+  if (choice !== 'build') return;
+
+  let summary;
+  try {
+    summary = await withSpinner(state, 'Project graph', 'building code graph...', buildCodeGraph());
+  } catch (error) {
+    return message(state, 'Project graph', [s.yellow(`build failed: ${error.message}`)]);
+  }
+
+  if (summary.error) {
+    return message(state, 'Project graph', [s.yellow(summary.error)]);
+  }
+
+  const file = findProjectGraph(process.cwd());
+  if (file) openInBrowser(file);
+
+  await message(state, 'Project graph', [
+    `${summary.nodes} nodes, ${summary.edges} edges, ${summary.communities} communities`,
+    file ? `Opened ${file} in your browser.` : s.yellow('graph.json written but graph.html export failed.'),
+    '',
+    s.dim('For docs/papers/images too, run the full /graphify skill instead.')
+  ]);
 }
 
 async function tidyScreen(state) {
