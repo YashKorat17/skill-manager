@@ -43,6 +43,11 @@ export const CATEGORIES = [
     name: 'Build tooling',
     keywords: ['vite', 'webpack', 'esbuild', 'rollup', 'turbopack'],
     configFiles: ['vite.config.ts', 'vite.config.js', 'webpack.config.js']
+  },
+  {
+    name: 'Deployment',
+    keywords: ['docker', 'dockerfile', 'kubernetes', 'k8s', 'helm', 'terraform', 'nginx', 'pm2', 'systemd'],
+    configFiles: ['Dockerfile', 'docker-compose.yml', 'docker-compose.yaml', 'k8s', '.dockerignore']
   }
 ];
 
@@ -65,7 +70,7 @@ export function detectStack(cwd = process.cwd()) {
 
   for (const category of CATEGORIES) {
     for (const file of category.configFiles) {
-      if (fs.existsSync(path.join(cwd, file))) signals.add(path.basename(file).split('.')[0]);
+      if (fs.existsSync(path.join(cwd, file))) signals.add(path.basename(file).split('.')[0].toLowerCase());
     }
   }
 

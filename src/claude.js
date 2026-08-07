@@ -91,6 +91,31 @@ export async function claude(args, options = {}) {
 }
 
 /**
+ * Hands the real terminal to `claude` (stdin/stdout/stderr inherited) so a
+ * slash command can hold an actual back-and-forth conversation with the user,
+ * instead of the one-shot capture-and-parse flow `run`/`claude` use above.
+ * Caller is responsible for restoring the TUI's own raw-mode/cursor state
+ * once this resolves.
+ */
+export async function claudeInteractive(args, options = {}) {
+  const bin = await claudePath();
+  if (!bin) {
+    return { code: 127 };
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn(bin, args, {
+      cwd: options.cwd,
+      stdio: 'inherit',
+      windowsHide: true
+    });
+
+    child.on('error', () => resolve({ code: 1 }));
+    child.on('close', (code) => resolve({ code: code ?? 1 }));
+  });
+}
+
+/**
  * Installed plugins. The CLI's `--json` is preferred; the text output is parsed
  * as a fallback so an older CLI still works. `--json` can exit non-zero while
  * still printing valid JSON, so the payload is tried before the exit code.

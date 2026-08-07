@@ -2,7 +2,7 @@ import readline from 'node:readline';
 import process from 'node:process';
 import { findSkills, filterSkills } from './scan.js';
 import { deletionWarnings, removeSkill } from './remove.js';
-import { claude, hasClaude, listAvailablePlugins, listMarketplaces, listPlugins } from './claude.js';
+import { claude, claudeInteractive, hasClaude, listAvailablePlugins, listMarketplaces, listPlugins } from './claude.js';
 import { checkUpdates, updateAll } from './update.js';
 import { createStyler, formatDetail } from './format.js';
 import { formatTokens } from './tokens.js';
@@ -11,6 +11,7 @@ import { buildReport, saveReport } from './report.js';
 import { findProjectGraph, openInBrowser } from './graph.js';
 import { tidyIde } from './ide.js';
 import { buildCodeGraph } from './graphify.js';
+import { commandStatus, installCommand } from './scaffold.js';
 
 const ESC = String.fromCharCode(27);
 const CLEAR = `${ESC}[2J${ESC}[H`;
@@ -61,17 +62,42 @@ export async function startUI(context = {}) {
   }
 }
 
-/** Quick wordmark reveal on startup - a few hundred ms, never blocks past that. */
+/**
+ * Wordmark reveal on startup - a big-letter title typed on, then a byline
+ * fades in underneath. A few hundred ms total, never blocks past that.
+ *
+ * "Big letters" comes from Unicode fullwidth forms: most terminals render
+ * U+FF01-U+FF5E at double width, so the same ASCII string reads as a large
+ * block title with no ASCII-art font or extra dependency needed.
+ */
 async function playIntro(state) {
   const s = state.style;
-  const word = 'skill-manager';
   const out = process.stdout;
+  const title = toFullwidth('SKILL MANAGER');
+  const byline = 'by Yash Korat';
 
-  for (let i = 1; i <= word.length; i += 1) {
-    out.write(`${CLEAR}\n  ${s.cyan(s.bold(word.slice(0, i)))}${s.dim(word.slice(i))}\n`);
-    await sleep(22);
+  for (let i = 1; i <= title.length; i += 1) {
+    out.write(`${CLEAR}\n\n  ${s.cyan(s.bold(title.slice(0, i)))}${s.dim(title.slice(i))}\n`);
+    await sleep(18);
   }
-  await sleep(120);
+  await sleep(150);
+
+  for (let i = 1; i <= byline.length; i += 1) {
+    out.write(`${CLEAR}\n\n  ${s.cyan(s.bold(title))}\n\n  ${s.dim(byline.slice(0, i))}\n`);
+    await sleep(20);
+  }
+  await sleep(280);
+}
+
+/** Maps ASCII `!`-`~` to their Unicode fullwidth forms; space -> ideographic space. */
+function toFullwidth(text) {
+  return [...text]
+    .map((ch) => {
+      if (ch === ' ') return '　';
+      const code = ch.codePointAt(0);
+      return code >= 0x21 && code <= 0x7e ? String.fromCodePoint(code + 0xfee0) : ch;
+    })
+    .join('');
 }
 
 function sleep(ms) {
@@ -93,20 +119,35 @@ async function home(state) {
       title: 'skill-manager',
       subtitle: homeSummary(state),
       items: [
+        { key: 'skills', label: 'Skills', hint: 'browse, install, suggest, update' },
+        { key: 'project', label: 'Project', hint: 'project scope, report, graph, tidy' },
+        { key: 'quit', label: 'Quit' }
+      ]
+    });
+
+    if (choice === null || choice === 'quit') return;
+    if (choice === 'skills') await skillsMenu(state);
+    if (choice === 'project') await projectMenu(state);
+  }
+}
+
+async function skillsMenu(state) {
+  for (;;) {
+    const choice = await menu(state, {
+      title: 'Skills',
+      subtitle: homeSummary(state),
+      items: [
         { key: 'all skills', label: 'Browse all skills', hint: 'search, inspect, delete' },
         { key: 'weight', label: 'Token consumption', hint: 'what every session pays for' },
         { key: 'install', label: 'Install skills', hint: 'browse plugins from marketplaces' },
         { key: 'suggest', label: 'Suggest for this project', hint: 'matched to package.json + config files' },
         { key: 'marketplaces', label: 'Marketplaces', hint: 'add or refresh sources' },
         { key: 'update', label: 'Update everything', hint: 'package, marketplaces, plugins' },
-        { key: 'report', label: 'Save progress report', hint: 'skill counts + token weight to file' },
-        { key: 'graph', label: 'Open project graph', hint: 'opens graphify-out/graph.html in browser' },
-        { key: 'tidy', label: 'Hide clutter in VS Code', hint: 'adds files.exclude for node_modules etc' },
-        { key: 'quit', label: 'Quit' }
+        { key: 'back', label: 'Back' }
       ]
     });
 
-    if (choice === null || choice === 'quit') return;
+    if (choice === null || choice === 'back') return;
 
     if (choice === 'all skills') await browse(state, state.skills, 'All skills');
     if (choice === 'weight') await weightScreen(state);
@@ -114,6 +155,25 @@ async function home(state) {
     if (choice === 'suggest') await suggestScreen(state);
     if (choice === 'marketplaces') await marketplaceScreen(state);
     if (choice === 'update') await updateScreen(state);
+  }
+}
+
+async function projectMenu(state) {
+  for (;;) {
+    const choice = await menu(state, {
+      title: 'Project',
+      items: [
+        { key: 'scope', label: 'Project scope', hint: 'init / production-ready / production-guide commands' },
+        { key: 'report', label: 'Save progress report', hint: 'skill counts + token weight to file' },
+        { key: 'graph', label: 'Open project graph', hint: 'opens graphify-out/graph.html in browser' },
+        { key: 'tidy', label: 'Hide clutter in VS Code', hint: 'adds files.exclude for node_modules etc' },
+        { key: 'back', label: 'Back' }
+      ]
+    });
+
+    if (choice === null || choice === 'back') return;
+
+    if (choice === 'scope') await projectScopeScreen(state);
     if (choice === 'report') await reportScreen(state);
     if (choice === 'graph') await graphScreen(state);
     if (choice === 'tidy') await tidyScreen(state);
@@ -627,6 +687,77 @@ async function tidyScreen(state) {
       ? `Added: ${added.join(', ')}`
       : s.dim('Nothing to add - these excludes were already there.')
   ]);
+}
+
+/**
+ * Scaffolds the project-init / production-ready / production-guide slash
+ * commands into `.claude/commands/` and runs them. These aren't scripted
+ * here - each is a prompt template that Claude itself interviews the user
+ * through, so running one hands the real terminal over to `claude` and gets
+ * it back once that conversation ends.
+ */
+async function projectScopeScreen(state) {
+  const s = state.style;
+  const cwd = process.cwd();
+
+  if (!state.claudeAvailable) {
+    return message(state, 'Project scope', [
+      'The claude CLI was not found on PATH.',
+      '',
+      'These commands are live conversations with claude, so the CLI needs',
+      'to be installed and on PATH first.'
+    ]);
+  }
+
+  for (;;) {
+    const commands = commandStatus(cwd);
+
+    const choice = await menu(state, {
+      title: 'Project scope',
+      subtitle: s.dim('scaffolds a Claude Code slash command into .claude/commands/, then runs it here'),
+      items: [
+        ...commands.map((cmd) => ({
+          key: cmd.key,
+          label: cmd.label,
+          hint: `${cmd.installed ? '[installed] ' : ''}${cmd.hint}`
+        })),
+        { key: 'back', label: 'Back' }
+      ]
+    });
+
+    if (choice === null || choice === 'back') return;
+
+    const cmd = commands.find((entry) => entry.key === choice);
+    if (!cmd) continue;
+
+    const installed = installCommand(cwd, cmd.key);
+    await runInteractive(state, cmd.label, [cmd.slash], cwd, installed);
+  }
+}
+
+/** Suspends the TUI's own input handling and hands the real terminal to `claude`. */
+async function runInteractive(state, title, args, cwd, installed) {
+  const out = process.stdout;
+  const stdin = process.stdin;
+  const wasRaw = Boolean(stdin.isRaw);
+
+  out.write(SHOW_CURSOR);
+  if (wasRaw) stdin.setRawMode(false);
+  stdin.pause();
+
+  out.write(CLEAR);
+  out.write(
+    `${installed.alreadyInstalled ? 'Using existing' : 'Installed'} ${installed.path}\n` +
+      `Launching claude ${args.join(' ')} - exit that session normally to come back here.\n\n`
+  );
+
+  const result = await claudeInteractive(args, { cwd });
+
+  if (wasRaw) stdin.setRawMode(true);
+  out.write(HIDE_CURSOR);
+
+  state.status =
+    result.code === 0 ? `${title} session ended` : `${title} session exited with code ${result.code}`;
 }
 
 function statusMark(state, status) {
