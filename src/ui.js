@@ -6,6 +6,7 @@ import { claude, hasClaude, listAvailablePlugins, listMarketplaces, listPlugins 
 import { checkUpdates, updateAll } from './update.js';
 import { createStyler, formatDetail } from './format.js';
 import { formatTokens } from './tokens.js';
+import { suggestSkills } from './suggest.js';
 
 const ESC = String.fromCharCode(27);
 const CLEAR = `${ESC}[2J${ESC}[H`;
@@ -73,6 +74,7 @@ async function home(state) {
         { key: 'all skills', label: 'Browse all skills', hint: 'search, inspect, delete' },
         { key: 'weight', label: 'Token consumption', hint: 'what every session pays for' },
         { key: 'install', label: 'Install skills', hint: 'browse plugins from marketplaces' },
+        { key: 'suggest', label: 'Suggest for this project', hint: 'matched to package.json + config files' },
         { key: 'marketplaces', label: 'Marketplaces', hint: 'add or refresh sources' },
         { key: 'update', label: 'Update everything', hint: 'package, marketplaces, plugins' },
         { key: 'quit', label: 'Quit' }
@@ -84,6 +86,7 @@ async function home(state) {
     if (choice === 'all skills') await browse(state, state.skills, 'All skills');
     if (choice === 'weight') await weightScreen(state);
     if (choice === 'install') await installScreen(state);
+    if (choice === 'suggest') await suggestScreen(state);
     if (choice === 'marketplaces') await marketplaceScreen(state);
     if (choice === 'update') await updateScreen(state);
   }
@@ -347,6 +350,73 @@ async function installScreen(state) {
       );
 
       catalog = await listAvailablePlugins();
+      await reloadSkills(state);
+    }
+  }
+}
+
+/** Ranks the plugin catalog against this project's package.json + config files. */
+async function suggestScreen(state) {
+  const s = state.style;
+
+  if (!state.claudeAvailable) {
+    return message(state, 'Suggest for this project', ['The claude CLI was not found on PATH.']);
+  }
+
+  draw(state, { title: 'Suggest for this project', body: s.dim('scanning project and catalog...') });
+  const { categories, suggestions } = await suggestSkills();
+
+  if (!suggestions.length) {
+    return message(state, 'Suggest for this project', [
+      categories.length
+        ? `Detected: ${categories.join(', ')}`
+        : 'No known stack detected from package.json or config files.',
+      '',
+      'No matching plugins found in the configured marketplaces.'
+    ]);
+  }
+
+  let cursor = 0;
+  let offset = 0;
+
+  for (;;) {
+    const height = Math.max(5, (process.stdout.rows || 24) - 10);
+    cursor = Math.min(cursor, suggestions.length - 1);
+    if (cursor < offset) offset = cursor;
+    if (cursor >= offset + height) offset = cursor - height + 1;
+
+    const lines = suggestions.slice(offset, offset + height).map((plugin, index) => {
+      const selected = offset + index === cursor;
+      const marker = selected ? s.cyan('>') : ' ';
+      const stars = plugin.stars != null ? s.dim(`* ${plugin.stars}`) : s.dim('* ?');
+      const tag = `${padEnd(plugin.marketplace, 18)} ${padStart(stars, 8)}`;
+      const label = `${padEnd(plugin.name, 30)} ${tag} ${s.dim(
+        truncate(plugin.description, Math.max(20, (process.stdout.columns || 100) - 76))
+      )}`;
+      return `${marker} ${selected ? s.bold(label) : label}`;
+    });
+
+    draw(state, {
+      title: 'Suggest for this project',
+      subtitle: categories.length
+        ? `${s.dim('detected:')} ${categories.join(', ')}  ${s.dim(`${suggestions.length} match`)}`
+        : s.dim(`${suggestions.length} match  (matched on plugin name/description, no known stack detected)`),
+      body: lines.join('\n'),
+      footer: 'up/down move   enter install   esc back'
+    });
+
+    const key = await readKey();
+    if (!key || key.name === 'escape' || key.name === 'q' || key.ctrl) return;
+    if (key.name === 'up') cursor = Math.max(0, cursor - 1);
+    if (key.name === 'down') cursor = Math.min(suggestions.length - 1, cursor + 1);
+    if (key.name === 'pageup') cursor = Math.max(0, cursor - height);
+    if (key.name === 'pagedown') cursor = Math.min(suggestions.length - 1, cursor + height);
+
+    if (key.name === 'return' && suggestions[cursor]) {
+      const plugin = suggestions[cursor];
+      await runTask(state, `Installing ${plugin.id}`, (log) =>
+        claude(['plugin', 'install', plugin.id], { onData: log })
+      );
       await reloadSkills(state);
     }
   }

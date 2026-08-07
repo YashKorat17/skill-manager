@@ -38,6 +38,7 @@ Options
       --depth <n>     directory depth per root (default 8)
       --duplicates    keep copies of the same plugin skill found twice
       --body          include SKILL.md body in --json / --show output
+      --suggest       recommend marketplace plugins matching this project
       --no-color      disable ANSI colors
       --no-ui         never open the interactive menu
   -v, --version       print version
@@ -81,6 +82,7 @@ async function main() {
   if (options.help) return print(HELP.trimEnd());
   if (options.version) return print(readVersion());
   if (options.command === 'update') return update(options);
+  if (options.suggest) return suggest(options);
 
   // Bare `skill-manager` in a terminal opens the menu; anything else - a query,
   // a flag, a pipe - keeps the plain printing behaviour scripts rely on.
@@ -281,6 +283,33 @@ async function update(options) {
   if (results.some((item) => item.status === 'failed')) process.exitCode = 1;
 }
 
+/** Non-interactive counterpart of the suggest screen. */
+async function suggest(options) {
+  const { suggestSkills } = await import('../src/suggest.js');
+  const style = createStyler(options.color ?? colorsEnabled());
+  const { categories, suggestions } = await suggestSkills();
+
+  print(
+    categories.length
+      ? style.dim(`detected: ${categories.join(', ')}`)
+      : style.dim('no known stack detected from package.json or config files')
+  );
+
+  if (!suggestions.length) {
+    print(style.yellow('No matching plugins found in the configured marketplaces.'));
+    return;
+  }
+
+  for (const plugin of suggestions) {
+    const stars = plugin.stars != null ? `* ${plugin.stars}` : '* ?';
+    print(
+      `${style.bold(plugin.name)}  ${style.dim(plugin.marketplace)}  ${style.dim(stars)}  ${plugin.description}`
+    );
+  }
+  print('');
+  print(style.dim(`install with: claude plugin install <name>@<marketplace>`));
+}
+
 function pickSkill(skills, needle) {
   const query = String(needle).toLowerCase();
   return (
@@ -346,6 +375,7 @@ function parseArgs(argv) {
     paths: false,
     body: false,
     duplicates: false,
+    suggest: false,
     help: false,
     version: false,
     show: null,
@@ -398,6 +428,9 @@ function parseArgs(argv) {
         break;
       case '--duplicates':
         options.duplicates = true;
+        break;
+      case '--suggest':
+        options.suggest = true;
         break;
       case '--no-color':
         options.color = false;
